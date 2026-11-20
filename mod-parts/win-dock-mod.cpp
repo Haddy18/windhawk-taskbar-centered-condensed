@@ -6024,12 +6024,13 @@ int WINAPI SetWindowRgn_Hook(HWND hWnd, HRGN hRgn, BOOL bRedraw) {
   }
   return SetWindowRgn_Original(hWnd, hRgn, bRedraw);
 }
-// Fork addition. Since 1.5.271 this fork has its own mod ID,
-// taskbar-dock-like-vo; it used to share taskbar-dock-like with the original
-// TAI. Pasting the new code over an installed copy in Windhawk's editor moves
-// that copy to the new ID, but a copy made with "Create a new mod" runs beside
-// the old one, and the two would fight over every hook and taskbar property.
-// So stay unloaded while a copy under the old ID is installed and enabled.
+// Fork addition. Since 1.5.271 this fork has its own mod ID; it used to share
+// taskbar-dock-like with the original TAI, and since 1.5.282 it is
+// taskbar-dock-like-vo2 (a build made under the earlier -vo ID may still be
+// installed beside it). Either way a copy of the original TAI made with
+// "Create a new mod" runs beside ours, and the two would fight over every hook
+// and taskbar property. So stay unloaded while a copy under the original ID is
+// installed and enabled.
 // Only a regular Windhawk install keeps its mods in the registry; a portable
 // one is not checked.
 bool IsOldTaiModEnabledTai() {

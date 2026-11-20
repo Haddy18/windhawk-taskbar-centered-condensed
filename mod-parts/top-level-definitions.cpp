@@ -741,6 +741,11 @@ static std::unordered_map<HMODULE, std::vector<std::vector<std::wstring>>>
 // this mod's lookups (see tools/update-symbol-cache.py), and Windhawk is told
 // to look there. A build missing from it, the usual case, is looked up in its
 // symbol file as before.
+//
+// The folder keeps the `-vo` name even though the mod's ID is now `-vo2`: it is
+// a plain URL, and the cache already published under that name (and still being
+// refreshed by the workflow) is what makes a fresh Windows build work at all, so
+// renaming it would leave this build with no ported symbols.
 static constexpr WCHAR kSymbolCacheUrlTai[] =
     L"https://raw.githubusercontent.com/vitaliiorlov/"
     L"windhawk-taskbar-centered-condensed/symbol-cache/taskbar-dock-like-vo/";

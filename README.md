@@ -26,8 +26,9 @@ Upstream TAI has been unmaintained since June 2026 and no longer works on the
 > ### ⚠️ Own mod ID since 1.5.271
 >
 > This fork used to share the mod ID `taskbar-dock-like` with the original
-> TAI. It now has its own, `taskbar-dock-like-vo`, so Windhawk keeps the two
-> apart. **If TAI is already installed** (the original or an earlier build of
+> TAI. It now has its own, `taskbar-dock-like-vo2` (`taskbar-dock-like-vo` up to
+> 1.5.281), so Windhawk keeps the two apart, and a build made under the earlier
+> ID can be installed next to this one. **If TAI is already installed** (the original or an earlier build of
 > this fork), update it the usual way: open it in Windhawk, click **Edit**,
 > paste the new code over it and compile. Windhawk moves it to the new ID and
 > keeps your settings. Don't install it with **Create a new mod** while the
@@ -55,7 +56,9 @@ Upstream TAI has been unmaintained since June 2026 and no longer works on the
 > ported symbols that windhawk-mod-symbol-cache has for the DLLs the mod
 > hooks and writes the mod's symbols from them to the `symbol-cache` branch,
 > in the format of Windhawk's online symbol cache, and the mod points Windhawk
-> at `taskbar-dock-like-vo/` there. A symbol that a ported file doesn't have
+> at `taskbar-dock-like-vo/` there (the folder keeps that name even though the
+> mod ID is now `taskbar-dock-like-vo2`: the already published cache is what
+> makes a fresh Windows build work, so renaming it would be a regression). A symbol that a ported file doesn't have
 > is left out, so Windhawk looks for it in Microsoft's symbol file, and a
 > cache file is removed once Microsoft has published that file. The script
 > needs Python 3.14 or later and nothing else; to run it by hand, give
