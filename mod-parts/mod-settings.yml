@@ -35,7 +35,7 @@
 
 - TaskItemsAlignment: "island"
   $name: Task item alignment
-  $description: Where the task buttons go. "island" keeps this mod's layout - the buttons are packed at the left edge of the island, next to the tray. "system" moves nothing and lets Windows lay the taskbar out with its own "Taskbar alignment" setting (Settings - Personalization - Taskbar), so a centred group stays centred and the tray keeps to the right edge. "system" draws a full-width background and docks the taskbar to the screen edge; TrayTaskGap no longer applies. Default is island
+  $description: Where the task buttons go inside the floating bar. "island" keeps upstream's layout - the buttons are packed at the bar's left edge, next to the tray. "system" keeps them centred in the bar, the way Windows' own "Taskbar alignment" setting does, while the tray stays at the bar's right end, so raising TrayTaskGap widens the bar and separates the tray from the buttons without moving them off centre. Default is island
   $options:
   - island: This mod's island
   - system: Windows' taskbar alignment

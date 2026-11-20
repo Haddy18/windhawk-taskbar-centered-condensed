@@ -77,16 +77,17 @@ See the [README](README.md) for installing and building.
    Auto-Hide Instant Show" brings the taskbar up from anywhere on the edge
    by itself, so leave it off to use this. Controlled by the
    `AutoHideShowUnderTaskbarOnly` setting (on by default).
-
-8. **`TaskItemsAlignment`: let Windows place the task buttons.**
-   The mod always parks the task buttons at the island's left edge, so
+8. **`TaskItemsAlignment` and `TaskbarWidthPercent`: a centred group inside
+   the floating bar.**
+   The mod always parks the task buttons at the left edge of the island, so
    Windows' own *Taskbar alignment* setting had no visible effect: choosing
    *Center* moved the buttons in Explorer's layout and the island animation
-   pulled them straight back. With `TaskItemsAlignment: system` nothing is
-   moved - the group keeps Windows' position, the tray stays at the right
-   edge and the background spans the screen - so a centred taskbar looks like
-   the stock one with this mod's height, blur and border. The default,
-   `island`, is the previous behaviour, and `TrayTaskGap` only applies there.
+   pulled them straight back. `TaskItemsAlignment: system` centres them in the
+   space the tray leaves free instead, and the tray keeps to the bar's right
+   end. Since the content-sized island has no free space, `TaskbarWidthPercent`
+   sets how wide the floating bar is (`0`, the default, keeps it content-sized,
+   which is the previous behaviour); the bar stays centred, rounded and inset
+   by `TaskbarOffsetY` in both modes.
 
 ## Fixed
 

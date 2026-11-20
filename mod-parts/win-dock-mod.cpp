@@ -3196,11 +3196,10 @@ void UpdateGlobalSettings() {
   auto getInt = [&](PCWSTR key) { return Wh_GetIntSetting(key); };
   auto clamp = [](int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; };
   // Booleans
-  // Fork addition: TaskItemsAlignment=system means "do not move anything", so
-  // the task buttons keep the position Windows' own "Taskbar alignment"
-  // setting gives them. A moved group needs a moved background and a clipped
-  // window to go with it, so this mode reuses the full-width background path
-  // instead of the island one (see ApplyTaskbarStyle).
+  // Fork addition: TaskItemsAlignment picks where the task buttons sit inside
+  // the bar - hugged to its left edge (`island`, the upstream look) or centred
+  // in the space the tray leaves free (`system`, what Windows' own "Taskbar
+  // alignment" setting means). See ApplyStyle.
   PCWSTR taskItemsAlignment = Wh_GetStringSetting(L"TaskItemsAlignment");
   g_settings.userDefinedFollowSystemTaskItems =
       !g_unloading && taskItemsAlignment && _wcsicmp(taskItemsAlignment, L"system") == 0;
@@ -3208,9 +3207,7 @@ void UpdateGlobalSettings() {
     Wh_FreeStringSetting(taskItemsAlignment);
   }
   g_settings.userDefinedFlatTaskbarBottomCorners = (getInt(L"FlatTaskbarBottomCorners") != 0);
-  g_settings.userDefinedFullWidthTaskbarBackground =
-      (getInt(L"FullWidthTaskbarBackground") != 0) ||
-      g_settings.userDefinedFollowSystemTaskItems || g_unloading;
+  g_settings.userDefinedFullWidthTaskbarBackground = (getInt(L"FullWidthTaskbarBackground") != 0) || g_unloading;
   if (g_settings.userDefinedFullWidthTaskbarBackground) g_settings.userDefinedFlatTaskbarBottomCorners = true;
   g_settings.userDefinedIgnoreShowDesktopButton = (getInt(L"IgnoreShowDesktopButton") != 0);
   g_settings.userDefinedTrayAreaDivider = (getInt(L"TrayAreaDivider") != 0) && !g_unloading;
@@ -5104,25 +5101,28 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
     Wh_Log(L"Error: trayFrameWidth <= 1");
     return false;
   }
-  // Fork addition: TaskItemsAlignment=system. Everything below assumes this mod
-  // owns the horizontal placement: the task buttons are parked at the island's
-  // left edge and the tray is pulled next to them, so Windows' own "Taskbar
-  // alignment" setting (centred unless the user picks left) can never show.
-  // In system mode every offset stays at zero and the background spans the
-  // monitor (the full-width path), which leaves Explorer's own layout, and
-  // therefore the alignment the user picked, untouched.
+  // Fork addition: TaskItemsAlignment. The bar keeps the floating island look -
+  // centred, rounded, TaskbarOffsetY - and its width still comes from the
+  // content: the buttons, the tray and TrayTaskGap, which trayFrameWidth already
+  // carries. In `system` mode the buttons sit in the middle of the bar and the
+  // tray at its right end, so the room the tray takes on the right is mirrored on
+  // the left - the same asymmetry Windows 11 has in "Taskbar alignment: Center".
+  // Raising TrayTaskGap then widens the bar and slides the tray away from the
+  // buttons without moving them off centre.
   const bool followSystemTaskItems = g_settings.userDefinedFollowSystemTaskItems;
-  const float taskbarBackgroundPadding = followSystemTaskItems
-      ? 0.0f
-      : static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
-  const float targetContentWidth = static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
-  const float targetContentLeft = followSystemTaskItems
-      ? 0.0f
-      : snapPx(static_cast<float>((rootWidth - targetContentWidth) / 2.0f));
-  const float targetTrayLogicalLeft = snapPx(targetContentLeft + static_cast<float>(childrenWidthTaskbar));
-  float targetOffsetXTray = followSystemTaskItems
-      ? 0.0f
-      : snapPx(targetTrayLogicalLeft - static_cast<float>(rootWidth - trayFrameWidth));
+  const float taskbarBackgroundPadding =
+      static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
+  const float targetContentWidth = followSystemTaskItems
+      ? (static_cast<float>(childrenWidthTaskbar) + (2.0f * static_cast<float>(trayFrameWidth)))
+      : static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
+  const float targetContentLeft = snapPx(static_cast<float>((rootWidth - targetContentWidth) / 2.0f));
+  const float taskButtonsLeft = followSystemTaskItems
+      ? snapPx(targetContentLeft + static_cast<float>(trayFrameWidth))
+      : targetContentLeft;
+  const float targetTrayLogicalLeft = followSystemTaskItems
+      ? snapPx(targetContentLeft + targetContentWidth - static_cast<float>(trayFrameWidth))
+      : snapPx(targetContentLeft + static_cast<float>(childrenWidthTaskbar));
+  float targetOffsetXTray = snapPx(targetTrayLogicalLeft - static_cast<float>(rootWidth - trayFrameWidth));
   // tray animations
   auto systemTrayFrameGridVisual = winrt::Windows::UI::Xaml::Hosting::ElementCompositionPreview::GetElementVisual(systemTrayFrameGrid);
   if (!systemTrayFrameGridVisual) {
@@ -5241,14 +5241,11 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
   const double taskbarAnchorLeft = useStableStartButtonAnchor
       ? static_cast<double>(state.stableStartButtonAnchorLeft)
       : fallbackTaskbarAnchorLeft;
-  float targetTaskRootOffsetX = followSystemTaskItems
-      ? 0.0f
-      : snapPx(targetContentLeft - static_cast<float>(taskbarAnchorLeft));
-  float centeredTaskbarRightEdge = targetTrayLogicalLeft;
-  float targetWidth = (g_unloading || followSystemTaskItems)
+  float targetTaskRootOffsetX = snapPx(taskButtonsLeft - static_cast<float>(taskbarAnchorLeft));
+  float centeredTaskbarRightEdge = snapPx(taskButtonsLeft + static_cast<float>(childrenWidthTaskbar));
+  float targetWidth = g_unloading
       ? static_cast<float>(rootWidth)
-      : (static_cast<float>(childrenWidthTaskbar + trayFrameWidth) +
-         (taskbarBackgroundPadding * 2.0f));
+      : (targetContentWidth + (taskbarBackgroundPadding * 2.0f));
   if (targetWidth < 1) {
     Wh_Log(L"Error: targetWidth<1");
     return false;
@@ -5526,9 +5523,11 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
         if (compositorWidget) {
           // Widget visual is inside the RootGrid-shifted subtree, so its local
           // target must exclude the RootGrid compositor offset. Its screen
-          // position still lands after the centered task buttons.
+          // position still lands after the task buttons (`island`) or just
+          // before the tray, which is no longer glued to them (`system`).
           float targetOffsetXWidget = followSystemTaskItems
-              ? 0.0f
+              ? targetTrayLogicalLeft - static_cast<float>(widgetElementVisibleWidth) -
+                    8.0f - targetTaskRootOffsetX
               : centeredTaskbarRightEdge - targetTaskRootOffsetX - 8.0f + g_settings.userDefinedTrayTaskGap;
           targetOffsetXWidget = snapPx(targetOffsetXWidget);
           float targetOffsetYWidget = snapPx(static_cast<float>(abs(g_settings.userDefinedTaskbarHeight - widgetElementVisibleHeight)));
