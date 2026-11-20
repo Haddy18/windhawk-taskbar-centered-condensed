@@ -3196,6 +3196,16 @@ void UpdateGlobalSettings() {
   auto getInt = [&](PCWSTR key) { return Wh_GetIntSetting(key); };
   auto clamp = [](int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; };
   // Booleans
+  // Fork addition: TaskItemsAlignment picks where the task buttons sit inside
+  // the bar - hugged to its left edge (`island`, the upstream look) or centred
+  // in the space the tray leaves free (`system`, what Windows' own "Taskbar
+  // alignment" setting means). See ApplyStyle.
+  PCWSTR taskItemsAlignment = Wh_GetStringSetting(L"TaskItemsAlignment");
+  g_settings.userDefinedFollowSystemTaskItems =
+      !g_unloading && taskItemsAlignment && _wcsicmp(taskItemsAlignment, L"system") == 0;
+  if (taskItemsAlignment) {
+    Wh_FreeStringSetting(taskItemsAlignment);
+  }
   g_settings.userDefinedFlatTaskbarBottomCorners = (getInt(L"FlatTaskbarBottomCorners") != 0);
   g_settings.userDefinedFullWidthTaskbarBackground = (getInt(L"FullWidthTaskbarBackground") != 0) || g_unloading;
   if (g_settings.userDefinedFullWidthTaskbarBackground) g_settings.userDefinedFlatTaskbarBottomCorners = true;
@@ -3344,6 +3354,7 @@ void LogAllSettings() {
   Wh_Log(L"setting %d %s", g_settings.userDefinedTaskbarBorderOpacity, L"userDefinedTaskbarBorderOpacity");
   Wh_Log(L"setting %d %s", (int)(g_settings.userDefinedTaskbarBorderThickness * 100.0 / 10.0), L"userDefinedTaskbarBorderThickness (scaled)");
   Wh_Log(L"setting %d %s", g_settings.userDefinedFullWidthTaskbarBackground ? 1 : 0, L"userDefinedFullWidthTaskbarBackground");
+  Wh_Log(L"setting %d %s", g_settings.userDefinedFollowSystemTaskItems ? 1 : 0, L"userDefinedFollowSystemTaskItems");
   Wh_Log(L"setting %d %s", g_settings.userDefinedIgnoreShowDesktopButton ? 1 : 0, L"userDefinedIgnoreShowDesktopButton");
   Wh_Log(L"setting %d %s", g_settings.userDefinedStyleTrayArea ? 1 : 0, L"userDefinedStyleTrayArea");
   Wh_Log(L"setting %d %s", g_settings.userDefinedTrayAreaDivider ? 1 : 0, L"userDefinedTrayAreaDivider");
@@ -5090,9 +5101,27 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
     Wh_Log(L"Error: trayFrameWidth <= 1");
     return false;
   }
-  const float targetContentWidth = static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
+  // Fork addition: TaskItemsAlignment. The bar keeps the floating island look -
+  // centred, rounded, TaskbarOffsetY - and its width still comes from the
+  // content: the buttons, the tray and TrayTaskGap, which trayFrameWidth already
+  // carries. In `system` mode the buttons sit in the middle of the bar and the
+  // tray at its right end, so the room the tray takes on the right is mirrored on
+  // the left - the same asymmetry Windows 11 has in "Taskbar alignment: Center".
+  // Raising TrayTaskGap then widens the bar and slides the tray away from the
+  // buttons without moving them off centre.
+  const bool followSystemTaskItems = g_settings.userDefinedFollowSystemTaskItems;
+  const float taskbarBackgroundPadding =
+      static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
+  const float targetContentWidth = followSystemTaskItems
+      ? (static_cast<float>(childrenWidthTaskbar) + (2.0f * static_cast<float>(trayFrameWidth)))
+      : static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
   const float targetContentLeft = snapPx(static_cast<float>((rootWidth - targetContentWidth) / 2.0f));
-  const float targetTrayLogicalLeft = snapPx(targetContentLeft + static_cast<float>(childrenWidthTaskbar));
+  const float taskButtonsLeft = followSystemTaskItems
+      ? snapPx(targetContentLeft + static_cast<float>(trayFrameWidth))
+      : targetContentLeft;
+  const float targetTrayLogicalLeft = followSystemTaskItems
+      ? snapPx(targetContentLeft + targetContentWidth - static_cast<float>(trayFrameWidth))
+      : snapPx(targetContentLeft + static_cast<float>(childrenWidthTaskbar));
   float targetOffsetXTray = snapPx(targetTrayLogicalLeft - static_cast<float>(rootWidth - trayFrameWidth));
   // tray animations
   auto systemTrayFrameGridVisual = winrt::Windows::UI::Xaml::Hosting::ElementCompositionPreview::GetElementVisual(systemTrayFrameGrid);
@@ -5212,14 +5241,11 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
   const double taskbarAnchorLeft = useStableStartButtonAnchor
       ? static_cast<double>(state.stableStartButtonAnchorLeft)
       : fallbackTaskbarAnchorLeft;
-  float targetTaskRootOffsetX = snapPx(targetContentLeft - static_cast<float>(taskbarAnchorLeft));
-  float centeredTaskbarRightEdge = targetTrayLogicalLeft;
-  const float taskbarBackgroundPadding =
-      static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
+  float targetTaskRootOffsetX = snapPx(taskButtonsLeft - static_cast<float>(taskbarAnchorLeft));
+  float centeredTaskbarRightEdge = snapPx(taskButtonsLeft + static_cast<float>(childrenWidthTaskbar));
   float targetWidth = g_unloading
       ? static_cast<float>(rootWidth)
-      : (static_cast<float>(childrenWidthTaskbar + trayFrameWidth) +
-         (taskbarBackgroundPadding * 2.0f));
+      : (targetContentWidth + (taskbarBackgroundPadding * 2.0f));
   if (targetWidth < 1) {
     Wh_Log(L"Error: targetWidth<1");
     return false;
@@ -5497,8 +5523,12 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
         if (compositorWidget) {
           // Widget visual is inside the RootGrid-shifted subtree, so its local
           // target must exclude the RootGrid compositor offset. Its screen
-          // position still lands after the centered task buttons.
-          float targetOffsetXWidget = centeredTaskbarRightEdge - targetTaskRootOffsetX - 8.0f + g_settings.userDefinedTrayTaskGap;
+          // position still lands after the task buttons (`island`) or just
+          // before the tray, which is no longer glued to them (`system`).
+          float targetOffsetXWidget = followSystemTaskItems
+              ? targetTrayLogicalLeft - static_cast<float>(widgetElementVisibleWidth) -
+                    8.0f - targetTaskRootOffsetX
+              : centeredTaskbarRightEdge - targetTaskRootOffsetX - 8.0f + g_settings.userDefinedTrayTaskGap;
           targetOffsetXWidget = snapPx(targetOffsetXWidget);
           float targetOffsetYWidget = snapPx(static_cast<float>(abs(g_settings.userDefinedTaskbarHeight - widgetElementVisibleHeight)));
           const bool widgetOffsetChanged =
@@ -5993,12 +6023,13 @@ int WINAPI SetWindowRgn_Hook(HWND hWnd, HRGN hRgn, BOOL bRedraw) {
   }
   return SetWindowRgn_Original(hWnd, hRgn, bRedraw);
 }
-// Fork addition. Since 1.5.271 this fork has its own mod ID,
-// taskbar-dock-like-vo; it used to share taskbar-dock-like with the original
-// TAI. Pasting the new code over an installed copy in Windhawk's editor moves
-// that copy to the new ID, but a copy made with "Create a new mod" runs beside
-// the old one, and the two would fight over every hook and taskbar property.
-// So stay unloaded while a copy under the old ID is installed and enabled.
+// Fork addition. Since 1.5.271 this fork has its own mod ID; it used to share
+// taskbar-dock-like with the original TAI, and since 1.5.282 it is
+// taskbar-dock-like-vo2 (a build made under the earlier -vo ID may still be
+// installed beside it). Either way a copy of the original TAI made with
+// "Create a new mod" runs beside ours, and the two would fight over every hook
+// and taskbar property. So stay unloaded while a copy under the original ID is
+// installed and enabled.
 // Only a regular Windhawk install keeps its mods in the registry; a portable
 // one is not checked.
 bool IsOldTaiModEnabledTai() {

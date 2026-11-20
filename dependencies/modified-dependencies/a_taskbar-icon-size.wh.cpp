@@ -145,6 +145,7 @@ struct ModSettings {
   uint8_t userDefinedTaskbarBorderOpacity;
   double userDefinedTaskbarBorderThickness;
   bool userDefinedFullWidthTaskbarBackground;
+  bool userDefinedFollowSystemTaskItems;
   bool userDefinedIgnoreShowDesktopButton;
   bool userDefinedStyleTrayArea;
   bool userDefinedTrayAreaDivider;

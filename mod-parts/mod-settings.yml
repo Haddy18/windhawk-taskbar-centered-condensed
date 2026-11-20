@@ -33,6 +33,13 @@
   $description: When enabled, the taskbar background fills the entire width of the screen, similar to the default Windows behavior. Default is off
   $type: bool
 
+- TaskItemsAlignment: "island"
+  $name: Task item alignment
+  $description: Where the task buttons go inside the floating bar. "island" keeps upstream's layout - the buttons are packed at the bar's left edge, next to the tray. "system" keeps them centred in the bar, the way Windows' own "Taskbar alignment" setting does, while the tray stays at the bar's right end, so raising TrayTaskGap widens the bar and separates the tray from the buttons without moving them off centre. Default is island
+  $options:
+  - island: This mod's island
+  - system: Windows' taskbar alignment
+
 - IgnoreShowDesktopButton: false
   $name: Ignore "Show Desktop" button
   $description: When enabled, the "Show Desktop" button is ignored in width calculations. Default is off

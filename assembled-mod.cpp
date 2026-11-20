@@ -1,8 +1,8 @@
 // ==WindhawkMod==
-// @id              taskbar-dock-like-vo
+// @id              taskbar-dock-like-vo2
 // @name            TAI (taskbar as island) for Windows 11 - vo fork
-// @description     Centers and floats the taskbar as an animated dock. Fork changes are linked under Details.
-// @version         1.5.278-vo
+// @description     Centers and floats the taskbar as an animated dock and moves the tray area next to it. Maintained for the 2026 Windows 11 builds.
+// @version         1.5.285-vo
 // @author          vitaliiorlov (fork of DarkionAvey)
 // @github          https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed
 // @include         explorer.exe
@@ -13,8 +13,10 @@
 // @architecture    x86-64
 // ==/WindhawkMod==
 // This mod is based on code released under the GNU General Public License v3.0.
-// Fork of https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed
-// For bug reports and feedback about this fork:
+// Upstream (unmaintained since June 2026):
+// https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed
+// This fork is the maintained build for the 2026 Windows 11 builds
+// (26100.9818, 26100/26200/26300.9974); bug reports and feedback go here:
 // https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed
 // ==WindhawkModReadme==
 /*
@@ -22,22 +24,25 @@
 # TAI (Taskbar as (an) island) for Windows 11
 TAI lets you transform your Windows 11 taskbar into a smooth floating dock without losing any of the original taskbar functionality!
 # Bug reports
-This is a fork. File issues with **this fork** here: https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed/issues
-For problems that also reproduce on upstream TAI, please report them upstream
-instead: https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed/issues
+Issue tracker: https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed/issues
+Upstream TAI has been unmaintained since June 2026 and no longer works on the
+2026 Windows 11 builds, so issues reported there are unlikely to be answered.
 ---
-> ## 🍴 This is a personal fork
+> ## Where this code comes from
 >
 > Upstream: [DarkionAvey/windhawk-taskbar-centered-condensed](https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed).
-> This fork ([vitaliiorlov/windhawk-taskbar-centered-condensed](https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed))
-> tracks upstream closely; everything it adds or fixes on top is listed in
+> This community fork ([vitaliiorlov/windhawk-taskbar-centered-condensed](https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed))
+> tracks upstream closely and carries the fixes that keep TAI working on the
+> 2026 Windows 11 builds (26100.9818, 26100/26200/26300.9974); everything it
+> adds or fixes on top is listed in
 > [What's different from upstream](https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed/blob/main/FORK-CHANGES.md).
 >
 > ### ⚠️ Own mod ID since 1.5.271
 >
 > This fork used to share the mod ID `taskbar-dock-like` with the original
-> TAI. It now has its own, `taskbar-dock-like-vo`, so Windhawk keeps the two
-> apart. **If TAI is already installed** (the original or an earlier build of
+> TAI. It now has its own, `taskbar-dock-like-vo2` (`taskbar-dock-like-vo` up to
+> 1.5.281), so Windhawk keeps the two apart, and a build made under the earlier
+> ID can be installed next to this one. **If TAI is already installed** (the original or an earlier build of
 > this fork), update it the usual way: open it in Windhawk, click **Edit**,
 > paste the new code over it and compile. Windhawk moves it to the new ID and
 > keeps your settings. Don't install it with **Create a new mod** while the
@@ -65,7 +70,9 @@ instead: https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed/issu
 > ported symbols that windhawk-mod-symbol-cache has for the DLLs the mod
 > hooks and writes the mod's symbols from them to the `symbol-cache` branch,
 > in the format of Windhawk's online symbol cache, and the mod points Windhawk
-> at `taskbar-dock-like-vo/` there. A symbol that a ported file doesn't have
+> at `taskbar-dock-like-vo/` there (the folder keeps that name even though the
+> mod ID is now `taskbar-dock-like-vo2`: the already published cache is what
+> makes a fresh Windows build work, so renaming it would be a regression). A symbol that a ported file doesn't have
 > is left out, so Windhawk looks for it in Microsoft's symbol file, and a
 > cache file is removed once Microsoft has published that file. The script
 > needs Python 3.14 or later and nothing else; to run it by hand, give
@@ -127,6 +134,7 @@ modify the source files in the `mod-parts` directory.
 | `TrayTaskGap` | Tray task gap | Adjust the space between the task area and the tray area. Default is 10 | Non-negative integer |
 | `TaskbarBackgroundHorizontalPadding` | Taskbar background horizontal padding | Set the horizontal padding on both sides of the taskbar background. Default is 2 | Non-negative integer |
 | `FullWidthTaskbarBackground` | Full-width taskbar background | When enabled, the taskbar background fills the entire width of the screen, similar to the default Windows behavior. Default is off | Boolean (true/false) |
+| `TaskItemsAlignment` | Task item alignment | Where the task buttons go inside the floating bar. "island" keeps upstream's layout - the buttons are packed at the bar's left edge, next to the tray. "system" keeps them centred in the bar, the way Windows' own "Taskbar alignment" setting does, while the tray stays at the bar's right end, so raising TrayTaskGap widens the bar and separates the tray from the buttons without moving them off centre. Default is island |  |
 | `IgnoreShowDesktopButton` | Ignore "Show Desktop" button | When enabled, the "Show Desktop" button is ignored in width calculations. Default is off | Boolean (true/false) |
 | `TaskbarCornerRadius` | Taskbar corner radius | Controls how rounded the taskbar corners appear. Default is 22 | Non-negative integer |
 | `TaskButtonCornerRadius` | Task button corner radius | Controls how rounded the corners of individual task buttons are. Default is 18 | Non-negative integer |
@@ -187,6 +195,12 @@ modify the source files in the `mod-parts` directory.
 - FullWidthTaskbarBackground: false
   $name: Full-width taskbar background
   $description: When enabled, the taskbar background fills the entire width of the screen, similar to the default Windows behavior. Default is off
+- TaskItemsAlignment: "island"
+  $name: Task item alignment
+  $description: Where the task buttons go inside the floating bar. "island" keeps upstream's layout - the buttons are packed at the bar's left edge, next to the tray. "system" keeps them centred in the bar, the way Windows' own "Taskbar alignment" setting does, while the tray stays at the bar's right end, so raising TrayTaskGap widens the bar and separates the tray from the buttons without moving them off centre. Default is island
+  $options:
+  - island: This mod's island
+  - system: Windows' taskbar alignment
 - IgnoreShowDesktopButton: false
   $name: Ignore "Show Desktop" button
   $description: When enabled, the "Show Desktop" button is ignored in width calculations. Default is off
@@ -443,6 +457,7 @@ struct ModSettings {
   uint8_t userDefinedTaskbarBorderOpacity;
   double userDefinedTaskbarBorderThickness;
   bool userDefinedFullWidthTaskbarBackground;
+  bool userDefinedFollowSystemTaskItems;
   bool userDefinedIgnoreShowDesktopButton;
   bool userDefinedStyleTrayArea;
   bool userDefinedTrayAreaDivider;
@@ -9900,6 +9915,16 @@ void UpdateGlobalSettings() {
   auto getInt = [&](PCWSTR key) { return Wh_GetIntSetting(key); };
   auto clamp = [](int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; };
   // Booleans
+  // Fork addition: TaskItemsAlignment picks where the task buttons sit inside
+  // the bar - hugged to its left edge (`island`, the upstream look) or centred
+  // in the space the tray leaves free (`system`, what Windows' own "Taskbar
+  // alignment" setting means). See ApplyStyle.
+  PCWSTR taskItemsAlignment = Wh_GetStringSetting(L"TaskItemsAlignment");
+  g_settings.userDefinedFollowSystemTaskItems =
+      !g_unloading && taskItemsAlignment && _wcsicmp(taskItemsAlignment, L"system") == 0;
+  if (taskItemsAlignment) {
+    Wh_FreeStringSetting(taskItemsAlignment);
+  }
   g_settings.userDefinedFlatTaskbarBottomCorners = (getInt(L"FlatTaskbarBottomCorners") != 0);
   g_settings.userDefinedFullWidthTaskbarBackground = (getInt(L"FullWidthTaskbarBackground") != 0) || g_unloading;
   if (g_settings.userDefinedFullWidthTaskbarBackground) g_settings.userDefinedFlatTaskbarBottomCorners = true;
@@ -10048,6 +10073,7 @@ void LogAllSettings() {
   Wh_Log(L"setting %d %s", g_settings.userDefinedTaskbarBorderOpacity, L"userDefinedTaskbarBorderOpacity");
   Wh_Log(L"setting %d %s", (int)(g_settings.userDefinedTaskbarBorderThickness * 100.0 / 10.0), L"userDefinedTaskbarBorderThickness (scaled)");
   Wh_Log(L"setting %d %s", g_settings.userDefinedFullWidthTaskbarBackground ? 1 : 0, L"userDefinedFullWidthTaskbarBackground");
+  Wh_Log(L"setting %d %s", g_settings.userDefinedFollowSystemTaskItems ? 1 : 0, L"userDefinedFollowSystemTaskItems");
   Wh_Log(L"setting %d %s", g_settings.userDefinedIgnoreShowDesktopButton ? 1 : 0, L"userDefinedIgnoreShowDesktopButton");
   Wh_Log(L"setting %d %s", g_settings.userDefinedStyleTrayArea ? 1 : 0, L"userDefinedStyleTrayArea");
   Wh_Log(L"setting %d %s", g_settings.userDefinedTrayAreaDivider ? 1 : 0, L"userDefinedTrayAreaDivider");
@@ -11738,9 +11764,27 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
     Wh_Log(L"Error: trayFrameWidth <= 1");
     return false;
   }
-  const float targetContentWidth = static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
+  // Fork addition: TaskItemsAlignment. The bar keeps the floating island look -
+  // centred, rounded, TaskbarOffsetY - and its width still comes from the
+  // content: the buttons, the tray and TrayTaskGap, which trayFrameWidth already
+  // carries. In `system` mode the buttons sit in the middle of the bar and the
+  // tray at its right end, so the room the tray takes on the right is mirrored on
+  // the left - the same asymmetry Windows 11 has in "Taskbar alignment: Center".
+  // Raising TrayTaskGap then widens the bar and slides the tray away from the
+  // buttons without moving them off centre.
+  const bool followSystemTaskItems = g_settings.userDefinedFollowSystemTaskItems;
+  const float taskbarBackgroundPadding =
+      static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
+  const float targetContentWidth = followSystemTaskItems
+      ? (static_cast<float>(childrenWidthTaskbar) + (2.0f * static_cast<float>(trayFrameWidth)))
+      : static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
   const float targetContentLeft = snapPx(static_cast<float>((rootWidth - targetContentWidth) / 2.0f));
-  const float targetTrayLogicalLeft = snapPx(targetContentLeft + static_cast<float>(childrenWidthTaskbar));
+  const float taskButtonsLeft = followSystemTaskItems
+      ? snapPx(targetContentLeft + static_cast<float>(trayFrameWidth))
+      : targetContentLeft;
+  const float targetTrayLogicalLeft = followSystemTaskItems
+      ? snapPx(targetContentLeft + targetContentWidth - static_cast<float>(trayFrameWidth))
+      : snapPx(targetContentLeft + static_cast<float>(childrenWidthTaskbar));
   float targetOffsetXTray = snapPx(targetTrayLogicalLeft - static_cast<float>(rootWidth - trayFrameWidth));
   // tray animations
   auto systemTrayFrameGridVisual = winrt::Windows::UI::Xaml::Hosting::ElementCompositionPreview::GetElementVisual(systemTrayFrameGrid);
@@ -11860,14 +11904,11 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
   const double taskbarAnchorLeft = useStableStartButtonAnchor
       ? static_cast<double>(state.stableStartButtonAnchorLeft)
       : fallbackTaskbarAnchorLeft;
-  float targetTaskRootOffsetX = snapPx(targetContentLeft - static_cast<float>(taskbarAnchorLeft));
-  float centeredTaskbarRightEdge = targetTrayLogicalLeft;
-  const float taskbarBackgroundPadding =
-      static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
+  float targetTaskRootOffsetX = snapPx(taskButtonsLeft - static_cast<float>(taskbarAnchorLeft));
+  float centeredTaskbarRightEdge = snapPx(taskButtonsLeft + static_cast<float>(childrenWidthTaskbar));
   float targetWidth = g_unloading
       ? static_cast<float>(rootWidth)
-      : (static_cast<float>(childrenWidthTaskbar + trayFrameWidth) +
-         (taskbarBackgroundPadding * 2.0f));
+      : (targetContentWidth + (taskbarBackgroundPadding * 2.0f));
   if (targetWidth < 1) {
     Wh_Log(L"Error: targetWidth<1");
     return false;
@@ -12145,8 +12186,12 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
         if (compositorWidget) {
           // Widget visual is inside the RootGrid-shifted subtree, so its local
           // target must exclude the RootGrid compositor offset. Its screen
-          // position still lands after the centered task buttons.
-          float targetOffsetXWidget = centeredTaskbarRightEdge - targetTaskRootOffsetX - 8.0f + g_settings.userDefinedTrayTaskGap;
+          // position still lands after the task buttons (`island`) or just
+          // before the tray, which is no longer glued to them (`system`).
+          float targetOffsetXWidget = followSystemTaskItems
+              ? targetTrayLogicalLeft - static_cast<float>(widgetElementVisibleWidth) -
+                    8.0f - targetTaskRootOffsetX
+              : centeredTaskbarRightEdge - targetTaskRootOffsetX - 8.0f + g_settings.userDefinedTrayTaskGap;
           targetOffsetXWidget = snapPx(targetOffsetXWidget);
           float targetOffsetYWidget = snapPx(static_cast<float>(abs(g_settings.userDefinedTaskbarHeight - widgetElementVisibleHeight)));
           const bool widgetOffsetChanged =
@@ -12633,12 +12678,13 @@ int WINAPI SetWindowRgn_Hook(HWND hWnd, HRGN hRgn, BOOL bRedraw) {
   }
   return SetWindowRgn_Original(hWnd, hRgn, bRedraw);
 }
-// Fork addition. Since 1.5.271 this fork has its own mod ID,
-// taskbar-dock-like-vo; it used to share taskbar-dock-like with the original
-// TAI. Pasting the new code over an installed copy in Windhawk's editor moves
-// that copy to the new ID, but a copy made with "Create a new mod" runs beside
-// the old one, and the two would fight over every hook and taskbar property.
-// So stay unloaded while a copy under the old ID is installed and enabled.
+// Fork addition. Since 1.5.271 this fork has its own mod ID; it used to share
+// taskbar-dock-like with the original TAI, and since 1.5.282 it is
+// taskbar-dock-like-vo2 (a build made under the earlier -vo ID may still be
+// installed beside it). Either way a copy of the original TAI made with
+// "Create a new mod" runs beside ours, and the two would fight over every hook
+// and taskbar property. So stay unloaded while a copy under the original ID is
+// installed and enabled.
 // Only a regular Windhawk install keeps its mods in the registry; a portable
 // one is not checked.
 bool IsOldTaiModEnabledTai() {

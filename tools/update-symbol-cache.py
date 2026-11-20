@@ -45,6 +45,12 @@ except ImportError:
 SOURCE_REPO = 'ramensoftware/windhawk-mod-symbol-cache'
 SOURCE_BRANCH = 'main'
 
+# Folder on the symbol-cache branch the mod reads, kept at the name of the ID it
+# had when the cache was introduced. The mod's ID changed to
+# taskbar-dock-like-vo2 afterwards and its cache URL still points here, so
+# writing to the ID would publish a cache nothing reads.
+CACHE_MOD_DIR = 'taskbar-dock-like-vo'
+
 # The modules whose symbols the mod hooks, that is the modules it passes to
 # HookSymbolsTai. A module left out here is still hooked, from its PDB.
 MODULES = (
@@ -279,7 +285,7 @@ def main():
     log(f'{SOURCE_REPO}@{commit[:12]}: {len(ported_files)} ported symbols files '
         f'for the mod\'s modules')
 
-    cache_dir = args.output / mod_id
+    cache_dir = args.output / CACHE_MOD_DIR
     written: set[Path] = set()
     changes: list[str] = []
     summary: list[str] = []

@@ -7,25 +7,28 @@ TAI lets you transform your Windows 11 taskbar into a smooth floating dock witho
 
 # Bug reports
 
-This is a fork. File issues with **this fork** here: https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed/issues
+Issue tracker: https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed/issues
 
-For problems that also reproduce on upstream TAI, please report them upstream
-instead: https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed/issues
+Upstream TAI has been unmaintained since June 2026 and no longer works on the
+2026 Windows 11 builds, so issues reported there are unlikely to be answered.
 
 ---
 
-> ## 🍴 This is a personal fork
+> ## Where this code comes from
 >
 > Upstream: [DarkionAvey/windhawk-taskbar-centered-condensed](https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed).
-> This fork ([vitaliiorlov/windhawk-taskbar-centered-condensed](https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed))
-> tracks upstream closely; everything it adds or fixes on top is listed in
+> This community fork ([vitaliiorlov/windhawk-taskbar-centered-condensed](https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed))
+> tracks upstream closely and carries the fixes that keep TAI working on the
+> 2026 Windows 11 builds (26100.9818, 26100/26200/26300.9974); everything it
+> adds or fixes on top is listed in
 > [What's different from upstream](https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed/blob/main/FORK-CHANGES.md).
 >
 > ### ⚠️ Own mod ID since 1.5.271
 >
 > This fork used to share the mod ID `taskbar-dock-like` with the original
-> TAI. It now has its own, `taskbar-dock-like-vo`, so Windhawk keeps the two
-> apart. **If TAI is already installed** (the original or an earlier build of
+> TAI. It now has its own, `taskbar-dock-like-vo2` (`taskbar-dock-like-vo` up to
+> 1.5.281), so Windhawk keeps the two apart, and a build made under the earlier
+> ID can be installed next to this one. **If TAI is already installed** (the original or an earlier build of
 > this fork), update it the usual way: open it in Windhawk, click **Edit**,
 > paste the new code over it and compile. Windhawk moves it to the new ID and
 > keeps your settings. Don't install it with **Create a new mod** while the
@@ -53,7 +56,9 @@ instead: https://github.com/DarkionAvey/windhawk-taskbar-centered-condensed/issu
 > ported symbols that windhawk-mod-symbol-cache has for the DLLs the mod
 > hooks and writes the mod's symbols from them to the `symbol-cache` branch,
 > in the format of Windhawk's online symbol cache, and the mod points Windhawk
-> at `taskbar-dock-like-vo/` there. A symbol that a ported file doesn't have
+> at `taskbar-dock-like-vo/` there (the folder keeps that name even though the
+> mod ID is now `taskbar-dock-like-vo2`: the already published cache is what
+> makes a fresh Windows build work, so renaming it would be a regression). A symbol that a ported file doesn't have
 > is left out, so Windhawk looks for it in Microsoft's symbol file, and a
 > cache file is removed once Microsoft has published that file. The script
 > needs Python 3.14 or later and nothing else; to run it by hand, give
@@ -130,6 +135,7 @@ modify the source files in the `mod-parts` directory.
 | `TrayTaskGap` | Tray task gap | Adjust the space between the task area and the tray area. Default is 10 | Non-negative integer |
 | `TaskbarBackgroundHorizontalPadding` | Taskbar background horizontal padding | Set the horizontal padding on both sides of the taskbar background. Default is 2 | Non-negative integer |
 | `FullWidthTaskbarBackground` | Full-width taskbar background | When enabled, the taskbar background fills the entire width of the screen, similar to the default Windows behavior. Default is off | Boolean (true/false) |
+| `TaskItemsAlignment` | Task item alignment | Where the task buttons go inside the floating bar. "island" keeps upstream's layout - the buttons are packed at the bar's left edge, next to the tray. "system" keeps them centred in the bar, the way Windows' own "Taskbar alignment" setting does, while the tray stays at the bar's right end, so raising TrayTaskGap widens the bar and separates the tray from the buttons without moving them off centre. Default is island |  |
 | `IgnoreShowDesktopButton` | Ignore "Show Desktop" button | When enabled, the "Show Desktop" button is ignored in width calculations. Default is off | Boolean (true/false) |
 | `TaskbarCornerRadius` | Taskbar corner radius | Controls how rounded the taskbar corners appear. Default is 22 | Non-negative integer |
 | `TaskButtonCornerRadius` | Task button corner radius | Controls how rounded the corners of individual task buttons are. Default is 18 | Non-negative integer |
