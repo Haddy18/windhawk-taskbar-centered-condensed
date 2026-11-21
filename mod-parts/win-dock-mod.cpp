@@ -3206,6 +3206,10 @@ void UpdateGlobalSettings() {
   if (taskItemsAlignment) {
     Wh_FreeStringSetting(taskItemsAlignment);
   }
+  // Fork addition: TaskbarWidth pins the bar's width instead of letting the
+  // content (buttons, tray and TrayTaskGap) decide it. 0 keeps the automatic
+  // width. See ApplyStyle.
+  g_settings.userDefinedTaskbarWidth = clamp(getInt(L"TaskbarWidth"), 0, 10000);
   g_settings.userDefinedFlatTaskbarBottomCorners = (getInt(L"FlatTaskbarBottomCorners") != 0);
   g_settings.userDefinedFullWidthTaskbarBackground = (getInt(L"FullWidthTaskbarBackground") != 0) || g_unloading;
   if (g_settings.userDefinedFullWidthTaskbarBackground) g_settings.userDefinedFlatTaskbarBottomCorners = true;
@@ -5112,12 +5116,39 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
   const bool followSystemTaskItems = g_settings.userDefinedFollowSystemTaskItems;
   const float taskbarBackgroundPadding =
       static_cast<float>(g_settings.userDefinedTaskbarBackgroundHorizontalPadding);
-  const float targetContentWidth = followSystemTaskItems
-      ? (static_cast<float>(childrenWidthTaskbar) + (2.0f * static_cast<float>(trayFrameWidth)))
-      : static_cast<float>(childrenWidthTaskbar + trayFrameWidth);
+  // Fork addition: TaskbarWidth pins that width, in the same units, so neither
+  // the buttons nor TrayTaskGap decide it any more - the gap only moves the
+  // tray inside the width that is left. The one bound is the content itself
+  // (buttons plus tray, or they would overlap), and the screen.
+  const float automaticSystemContentWidth =
+      static_cast<float>(childrenWidthTaskbar) + (2.0f * static_cast<float>(trayFrameWidth));
+  const float minimumContentWidth =
+      static_cast<float>(childrenWidthTaskbar) + static_cast<float>(trayFrameWidth);
+  const float fixedTaskbarWidth =
+      g_settings.userDefinedTaskbarWidth > 0
+          ? static_cast<float>(g_settings.userDefinedTaskbarWidth)
+          : 0.0f;
+  float targetContentWidth;
+  if (fixedTaskbarWidth > 0.0f) {
+    targetContentWidth = std::min(static_cast<float>(rootWidth),
+                                  std::max(fixedTaskbarWidth, minimumContentWidth));
+    if (g_settings.userDefinedTaskbarWidth != 0 &&
+        static_cast<float>(g_settings.userDefinedTaskbarWidth) != targetContentWidth) {
+      Wh_Log(L"[TaskbarWidth] %d -> %.2f (content needs %.2f)",
+             g_settings.userDefinedTaskbarWidth, targetContentWidth,
+             minimumContentWidth);
+    }
+  } else {
+    targetContentWidth = followSystemTaskItems
+        ? automaticSystemContentWidth
+        : minimumContentWidth;
+  }
   const float targetContentLeft = snapPx(static_cast<float>((rootWidth - targetContentWidth) / 2.0f));
+  // Centre the buttons in the bar; with the automatic width this is the same
+  // as leaving the tray's width free on the left.
   const float taskButtonsLeft = followSystemTaskItems
-      ? snapPx(targetContentLeft + static_cast<float>(trayFrameWidth))
+      ? snapPx(targetContentLeft +
+               ((targetContentWidth - static_cast<float>(childrenWidthTaskbar)) / 2.0f))
       : targetContentLeft;
   const float targetTrayLogicalLeft = followSystemTaskItems
       ? snapPx(targetContentLeft + targetContentWidth - static_cast<float>(trayFrameWidth))
@@ -5951,10 +5982,15 @@ BOOL WINAPI SetWindowPos_Hook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int
   const bool isInputSwitch =
       _wcsicmp(className, L"Shell_InputSwitchTopLevelWindow") == 0;
   const bool isControlCenter = _wcsicmp(className, L"ControlCenterWindow") == 0;
+  // ShellExperienceHost's XAML host window: the notification toasts and the
+  // clock flyout. Which of the two it is, is decided below.
+  const bool isShellExperienceWindow =
+      _wcsicmp(className, L"Windows.UI.Core.CoreWindow") == 0;
   const bool isTaskbar = _wcsicmp(className, L"Shell_TrayWnd") == 0 ||
                          _wcsicmp(className, L"Shell_SecondaryTrayWnd") == 0;
   DWORD processId = 0;
-  if ((!isInputSwitch && !isControlCenter && !isTaskbar) ||
+  if ((!isInputSwitch && !isControlCenter && !isShellExperienceWindow &&
+       !isTaskbar) ||
       !GetWindowThreadProcessId(hWnd, &processId)) {
     return callOriginal();
   }
@@ -6001,6 +6037,78 @@ BOOL WINAPI SetWindowPos_Hook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int
       Wh_Log(L"[SetWindowPos] New X %d", X);
     } else {
       Wh_Log(L"[SetWindowPos] No reference state for monitor %s", monitorName.c_str());
+    }
+  }
+  // Fork addition: the notification toasts are the ShellExperienceHost
+  // CoreWindow Windows right-aligns to the work area, which the island leaves
+  // empty - they hung out over the strip beside the bar. They are recognised
+  // by geometry (narrow, and still against the work area's right edge) and not
+  // by their localized title, and are moved the distance the tray is inset
+  // from the monitor edge, so Windows' own margins are kept but the banner
+  // hangs off the bar's right end. Two details make this work:
+  // - Windows moves a toast with SWP_NOSIZE (cx and cy are zero) and often with
+  //   SWP_NOMOVE as well, so the size and the current X are taken from the
+  //   window rect in those cases instead of from the arguments.
+  // - the position is computed absolutely from the toast's own right margin,
+  //   never from the current X, so a second call cannot move it twice. Once
+  //   moved it is no longer at the work area's edge and is left alone, which
+  //   also keeps the clock flyout (placed absolutely by
+  //   PlaceNotificationCenterViewRectTai, beside the tray) out of the way.
+  if (isShellExperienceWindow &&
+      Wh_GetIntSetting(L"MoveFlyoutToasts") != 0 &&
+      _wcsicmp(GetProcessExeName(processId).c_str(),
+               L"ShellExperienceHost.exe") == 0) {
+    HMONITOR monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO monitorInfo{.cbSize = sizeof(MONITORINFO)};
+    RECT windowRect{};
+    if (monitor && GetMonitorInfoW(monitor, &monitorInfo) &&
+        GetWindowRect(hWnd, &windowRect)) {
+      const int windowWidth = (uFlags & SWP_NOSIZE) || cx == 0
+                                  ? windowRect.right - windowRect.left
+                                  : cx;
+      const int windowX = (uFlags & SWP_NOMOVE) ? windowRect.left : X;
+      const int rightMargin =
+          monitorInfo.rcWork.right - (windowX + windowWidth);
+      auto monitorName = GetMonitorName(monitor);
+      int lastRecordedTrayRightMostEdgeForMonitor =
+          monitorName.empty()
+              ? -1
+              : Wh_GetIntValue((L"lastRightMostEdgeTray_" + monitorName).c_str(), -1);
+      UINT monitorDpiX = 96;
+      UINT monitorDpiY = 96;
+      if (FAILED(GetDpiForMonitor(monitor, MDT_DEFAULT, &monitorDpiX,
+                                 &monitorDpiY)) ||
+          monitorDpiX == 0) {
+        monitorDpiX = 96;
+        monitorDpiY = 96;
+      }
+      const float dpiScale = static_cast<float>(monitorDpiX) / 96.0f;
+      const int trayRightOnScreen =
+          lastRecordedTrayRightMostEdgeForMonitor > 0
+              ? monitorInfo.rcMonitor.left +
+                    static_cast<int>(lastRecordedTrayRightMostEdgeForMonitor *
+                                     dpiScale)
+              : monitorInfo.rcMonitor.right;
+      // Toast banners are narrow and sit flush against the work area's right
+      // edge, past the end of the bar; the clock flyout is neither by the time
+      // it is placed, and a toast that has already been moved no longer reaches
+      // past the tray, so this runs once per toast.
+      const int monitorWidth =
+          monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+      const bool isToast =
+          windowWidth > 0 &&
+          windowWidth <= std::max(800, monitorWidth / 3) &&
+          rightMargin >= -16 && rightMargin <= 128 &&
+          windowX + windowWidth > trayRightOnScreen;
+      if (isToast && lastRecordedTrayRightMostEdgeForMonitor > 0) {
+        const int newX = trayRightOnScreen - rightMargin - windowWidth;
+        if (newX < windowX) {
+          Wh_Log(L"[Toast] %s: X %d -> %d (cx=%d margin=%d)",
+                 monitorName.c_str(), windowX, newX, windowWidth, rightMargin);
+          X = newX;
+          uFlags &= ~SWP_NOMOVE;
+        }
+      }
     }
   }
   // Fork addition: see TaskbarRevealZoneTai.
