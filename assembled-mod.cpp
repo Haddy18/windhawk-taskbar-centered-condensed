@@ -2,7 +2,7 @@
 // @id              taskbar-dock-like-vo
 // @name            TAI (taskbar as island) for Windows 11 - vo fork
 // @description     Centers and floats the taskbar as an animated dock. Fork changes are linked under Details.
-// @version         1.5.279-vo
+// @version         1.5.280-vo
 // @author          vitaliiorlov (fork of DarkionAvey)
 // @github          https://github.com/vitaliiorlov/windhawk-taskbar-centered-condensed
 // @include         explorer.exe
@@ -12296,7 +12296,40 @@ bool ApplyStyle(FrameworkElement const& xamlRootContent, std::wstring monitorNam
   //    SetDividerForElement(widgetElementInnerChild, clipHeight, widgetPresent && g_settings.userDefinedTrayAreaDivider, true);
   //  }
   const bool shouldApplyCustomTaskbarBackground = !g_unloading && g_settings.userDefinedCustomizeTaskbarBackground;
-  const bool shouldClearCustomTaskbarBackground = g_unloading || (!shouldApplyCustomTaskbarBackground && state.hasCustomTaskbarBackgroundVisuals);
+  // Fork addition. With this mod's background switched off, nothing ever sets
+  // Windows' own taskbar background fill, and the fill Explorer starts with at
+  // logon can stay as it is: a flat grey bar (Windows draws the background
+  // without transparency until its effects are up) that only went away when
+  // "Stylize the taskbar background" was switched on and off once, because
+  // switching it off puts the fill back. So put it back here, a few times over
+  // the first seconds of the process, which is when the taskbar is built.
+  const ULONGLONG nowMs = GetTickCount64();
+  bool shouldNormalizeWindowsTaskbarBackground = false;
+  if (shouldApplyCustomTaskbarBackground) {
+    // Re-arm, so switching the setting off later gets its own pass, the way
+    // toggling it by hand always did.
+    state.windowsBackgroundNormalizeStarted = false;
+    state.windowsBackgroundNormalizePasses = 0;
+  } else if (!g_unloading) {
+    if (!state.windowsBackgroundNormalizeStarted) {
+      state.windowsBackgroundNormalizeStarted = true;
+      state.windowsBackgroundNormalizePasses = 3;
+      state.windowsBackgroundNormalizeNextMs = nowMs;
+    }
+    if (state.windowsBackgroundNormalizePasses > 0 &&
+        nowMs >= state.windowsBackgroundNormalizeNextMs) {
+      shouldNormalizeWindowsTaskbarBackground = true;
+      --state.windowsBackgroundNormalizePasses;
+      // Spread the passes over the startup instead of clearing on every style
+      // pass, which would flicker against whatever Windows sets in between.
+      state.windowsBackgroundNormalizeNextMs = nowMs + 2000;
+    }
+  }
+  const bool shouldClearCustomTaskbarBackground =
+      g_unloading ||
+      (!shouldApplyCustomTaskbarBackground &&
+       (state.hasCustomTaskbarBackgroundVisuals ||
+        shouldNormalizeWindowsTaskbarBackground));
   auto taskbarStroke = FindChildByName(backgroundFillParent, L"BackgroundStroke");
   auto screenEdgeStroke = FindChildByName(rootGridTaskBar, L"ScreenEdgeStroke");
   // you can also try SystemAccentColor
